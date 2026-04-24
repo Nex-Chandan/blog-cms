@@ -5,7 +5,7 @@ import { AppError } from "../utills/errorHandler.js";
 import User from "../models/user.js";
 import Category from "../models/category.js";
 
-// ─── Helper: Tags parse karo (string ya array dono handle) ───
+//  Tags parse karo (string ya array dono handle)
 const parseTags = (tags) => {
   if (!tags) return [];
   if (Array.isArray(tags)) return tags.map((t) => t.trim()).filter(Boolean);
@@ -24,7 +24,7 @@ const parseTags = (tags) => {
   return [];
 };
 
-// ─── Helper: Category name se ID resolve karo ────────────────
+// Category name se ID resolve karo 
 const resolveCategoryId = async (categoryName, next) => {
   if (!categoryName) return undefined;
 
@@ -39,10 +39,10 @@ const resolveCategoryId = async (categoryName, next) => {
   return found._id;
 };
 
-// ─────────────────────────────────────────────────────────────
+
 // ADMIN STATS
 // GET /api/blogs/stats
-// ─────────────────────────────────────────────────────────────
+
 const getAdminStaticsOfUserBlog = async (req, res, next) => {
   try {
     const totalUsers = await User.countDocuments();
@@ -57,10 +57,10 @@ const getAdminStaticsOfUserBlog = async (req, res, next) => {
   }
 };
 
-// ─────────────────────────────────────────────────────────────
+
 // GET ALL BLOGS — public, with filters + pagination
 // GET /api/blogs?search=&tag=&category=&page=&limit=
-// ─────────────────────────────────────────────────────────────
+
 const getAllBlogs = async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -90,10 +90,9 @@ const getAllBlogs = async (req, res, next) => {
   }
 };
 
-// ─────────────────────────────────────────────────────────────
 // GET SINGLE BLOG
 // GET /api/blogs/:id
-// ─────────────────────────────────────────────────────────────
+
 const getBlogById = async (req, res, next) => {
   try {
     const blog = await blogService.getBlogById(req.params.id);
@@ -105,10 +104,10 @@ const getBlogById = async (req, res, next) => {
   }
 };
 
-// ─────────────────────────────────────────────────────────────
+
 // CREATE BLOG
 // POST /api/blogs
-// ─────────────────────────────────────────────────────────────
+
 const createBlog = async (req, res, next) => {
   try {
     const { title, content, tags, category } = req.body;
@@ -148,10 +147,10 @@ const createBlog = async (req, res, next) => {
   }
 };
 
-// ─────────────────────────────────────────────────────────────
+
 // UPDATE BLOG
 // PUT /api/blogs/:id
-// ─────────────────────────────────────────────────────────────
+
 const updateBlog = async (req, res, next) => {
   try {
     const { title, content, tags, category } = req.body;
@@ -194,10 +193,9 @@ const updateBlog = async (req, res, next) => {
   }
 };
 
-// ─────────────────────────────────────────────────────────────
 // DELETE BLOG — soft delete
 // DELETE /api/blogs/:id
-// ─────────────────────────────────────────────────────────────
+
 const deleteBlog = async (req, res, next) => {
   try {
     const blog = await Blog.findById(req.params.id);

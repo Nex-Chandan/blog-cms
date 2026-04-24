@@ -14,7 +14,7 @@ import { upload } from "../utills/cloudinary.js";
 const router = express.Router();
 
 //  routes
-router.get("/", authmiddleware, getAllBlogs);
+router.get("/",getAllBlogs);
 router.get("/:id", authmiddleware, getBlogById);
 
 // admin routes
