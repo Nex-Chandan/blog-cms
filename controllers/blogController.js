@@ -11,7 +11,7 @@ const normalizeCategoryId = (id) => {
   if (idStr.length !== 24 || !/^[0-9a-fA-F]{24}$/.test(idStr)) {
     throw new AppError(
       "Invalid category ID format. Must be a 24-character hexadecimal string.",
-      400
+      400,
     );
   }
   return idStr.toLowerCase();
@@ -23,9 +23,14 @@ const parseTags = (tags) => {
   if (Array.isArray(tags)) return tags.map((t) => t.trim()).filter(Boolean);
   if (typeof tags === "string") {
     try {
-      return JSON.parse(tags).map((t) => t.trim()).filter(Boolean);
+      return JSON.parse(tags)
+        .map((t) => t.trim())
+        .filter(Boolean);
     } catch {
-      return tags.split(",").map((t) => t.trim()).filter(Boolean);
+      return tags
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
     }
   }
   return [];
@@ -55,13 +60,13 @@ const getAdminStaticsOfUserBlog = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────
 const getAllBlogs = async (req, res, next) => {
   try {
-    const page  = parseInt(req.query.page)  || 1;
+    const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
     // FIX: category filter add kiya + blogService ko query pass ki
     const query = {
-      search:   req.query.search   || "",
-      tag:      req.query.tag      || "",
+      search: req.query.search || "",
+      tag: req.query.tag || "",
       category: req.query.category || "", // ← pehle missing tha
       page,
       limit,
@@ -75,7 +80,7 @@ const getAllBlogs = async (req, res, next) => {
       blogs,
       pagination: {
         current: page,
-        pages:   Math.ceil(count / limit),
+        pages: Math.ceil(count / limit),
       },
     });
   } catch (err) {
@@ -99,7 +104,7 @@ const getBlogById = async (req, res, next) => {
 };
 
 // ─────────────────────────────────────────────────────────────
-// CREATE BLOG (Admin only)
+// CREATE BLOG 
 // POST /blogs
 // ─────────────────────────────────────────────────────────────
 const createBlog = async (req, res, next) => {
@@ -113,21 +118,32 @@ const createBlog = async (req, res, next) => {
     const normalizedCategory = normalizeCategoryId(category);
 
     const blogData = {
-      title:    title.trim(),
-      content:  content.trim(),
-      tags:     parseTags(tags),
-      author:   req.user.id,
+      title: title.trim(),
+      content: content.trim(),
+      tags: parseTags(tags),
+      author: req.user.id,
       ...(normalizedCategory && { category: normalizedCategory }),
     };
 
     // Cloudinary image upload
     if (req.file) {
-      blogData.coverImage = await uploadToCloudinary(req.file.path);
+      console.log("file received",req.file.path)
+      const uploaded = await uploadToCloudinary(req.file.path);
+      console.log("Cloudinary Response:", uploaded); 
+      blogData.coverImage =
+      typeof uploaded==="string" ?uploaded :uploaded.url;
+
+
+    }
+    else{
+      console.log("no file uploaded")
     }
 
     const blog = await blogService.createBlog(blogData);
     res.status(201).json({ success: true, blog });
-  } catch (err) {
+  } 
+  catch (err) {
+    console.log("create blog error",err)
     next(err);
   }
 };
@@ -152,10 +168,10 @@ const updateBlog = async (req, res, next) => {
     const parsedTags = parseTags(tags);
 
     const blogData = {};
-    if (title)                  blogData.title    = title.trim();
-    if (content)                blogData.content  = content.trim();
-    if (parsedTags.length)      blogData.tags     = parsedTags;
-    if (normalizedCategory)     blogData.category = normalizedCategory;
+    if (title) blogData.title = title.trim();
+    if (content) blogData.content = content.trim();
+    if (parsedTags.length) blogData.tags = parsedTags;
+    if (normalizedCategory) blogData.category = normalizedCategory;
 
     // Nayi image upload hui hai to replace karo
     if (req.file) {
@@ -183,7 +199,9 @@ const deleteBlog = async (req, res, next) => {
     }
 
     await blogService.deleteBlog(req.params.id);
-    res.status(200).json({ success: true, message: "Blog deleted successfully" });
+    res
+      .status(200)
+      .json({ success: true, message: "Blog deleted successfully" });
   } catch (err) {
     next(err);
   }

@@ -19,8 +19,8 @@ router.get("/stats", authmiddleware, adminOnly, getAdminStaticsOfUserBlog);
 router.get("/:id", getBlogById);
 
 // admin routes
-router.post("/", authmiddleware, upload.single("coverImage"), createBlog);
-router.put("/:id", authmiddleware, upload.single("coverImage"), updateBlog);
+router.post("/", authmiddleware, upload.single("image"), createBlog);
+router.put("/:id", authmiddleware, upload.single("image"), updateBlog);
 router.delete("/:id", authmiddleware, deleteBlog);
 
 export default router;

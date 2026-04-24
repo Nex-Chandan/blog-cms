@@ -2,13 +2,16 @@ import { v2 as cloudinary } from "cloudinary";
 import multer from "multer";
 import fs from "fs/promises";
 import path from "path";
-
+import dotenv from "dotenv"
+dotenv.config();
 // config
 cloudinary.config({
-  cloud_name: process.env.CLOUD_NAME,
-  api_key: process.env.API_KEY,
-  api_secret: process.env.API_SECRET,
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
+
+console.log("env checking loading", process.env.CLOUDINARY_API_KEY);
 
 // multer storage
 const storage = multer.diskStorage({
@@ -23,7 +26,7 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     cb(null, Date.now() + path.extname(file.originalname));
-  }
+  },
 });
 
 // upload middleware
@@ -36,27 +39,36 @@ export const upload = multer({
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error("Only JPG, PNG, WEBP images allowed"));
+      cb(new Error("Only JPEG, PNG, WEBP images allowed"));
     }
-  }
+  },
 });
 
 // upload to cloudinary
 export const uploadToCloudinary = async (localPath) => {
   try {
-    const result = await cloudinary.uploader.upload(localPath, {
+    const fixedPath = path.resolve(localPath);
+
+    console.log("Uploading:", fixedPath);
+
+    const result = await cloudinary.uploader.upload(fixedPath, {
       folder: "blog-cms",
-      transformation: [{ width: 1200, quality: "auto" }]
+      transformation: [{ width: 1200, quality: "auto" }],
     });
 
-    await fs.unlink(localPath); // async delete
+    await fs.unlink(fixedPath);
 
-    return result.secure_url;
+    return {
+      url: result.secure_url,
+      public_id: result.public_id,
+    };
   } catch (error) {
+    console.error("🔥 REAL Cloudinary ERROR:", error);
+
     try {
       await fs.unlink(localPath);
     } catch {}
 
-    throw new Error("Cloudinary upload failed");
+    throw error; // ✅ IMPORTANT FIX
   }
 };
