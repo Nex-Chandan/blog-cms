@@ -1,98 +1,199 @@
-import { json } from "express";
+import { uploadToCloudinary } from "../utills/cloudinary.js";
 import Blog from "../models/blog.js";
-import blogService from "../services/blogservices.js"
-import {AppError} from "../utills/errorHandler.js"
+import blogService from "../services/blogservices.js";
+import { AppError } from "../utills/errorHandler.js";
+import User from "../models/user.js";
 
+// ─── Helper: Category ID validate karo ───────────────────────
+const normalizeCategoryId = (id) => {
+  if (!id) return null;
+  const idStr = String(id).trim();
+  if (idStr.length !== 24 || !/^[0-9a-fA-F]{24}$/.test(idStr)) {
+    throw new AppError(
+      "Invalid category ID format. Must be a 24-character hexadecimal string.",
+      400
+    );
+  }
+  return idStr.toLowerCase();
+};
 
-
-
-// get the public blogs
-
-const getAllBlogs=async (req,res,next)=>{
-    try{
-        const blogs=await blogService.getAllBlogs(req.query);
-        return res.status(200).json({success:true,count:blogs.length,blogs})
+// ─── Helper: Tags parse karo (string ya array dono handle) ───
+const parseTags = (tags) => {
+  if (!tags) return [];
+  if (Array.isArray(tags)) return tags.map((t) => t.trim()).filter(Boolean);
+  if (typeof tags === "string") {
+    try {
+      return JSON.parse(tags).map((t) => t.trim()).filter(Boolean);
+    } catch {
+      return tags.split(",").map((t) => t.trim()).filter(Boolean);
     }
-    catch(err){
-        next(err)
-    }
-}
+  }
+  return [];
+};
 
-
-// get the blog by 
-
-const getBlogById=async (req,res,next)=>{
-    try{
-        const blog=await blogService.getBlogById(req.params.id);
-        if(!blog)return next(new AppError("blog not found",404))
-        res.status(200).json({success:true,blog})   
-    }
-
-    catch(err){
-        next(err)
-    }
-}
-
-
-// create blog
-const createBlog = async (req, res, next) => {
+// ─────────────────────────────────────────────────────────────
+// ADMIN STATS — total users + total blogs
+// GET /blogs/admin/stats
+// ─────────────────────────────────────────────────────────────
+const getAdminStaticsOfUserBlog = async (req, res, next) => {
   try {
-    const { title, content, coverImage, tags,category} = req.body;
+    const totalUsers = await User.countDocuments();
+    const totalBlogs = await Blog.countDocuments({ isDeleted: false });
 
-    if (!title || !content) {
-      return next(new AppError("Title and content are required", 400));
-    }
-
-    const blog = await blogService.createBlog({
-      title,
-      content,
-      coverImage,
-      tags,
-      author: req.user.id,
-      category
-    });
-
-    res.status(201).json({
+    res.status(200).json({
       success: true,
-      blog,
+      stats: { totalUsers, totalBlogs },
     });
   } catch (err) {
     next(err);
   }
 };
 
+// ─────────────────────────────────────────────────────────────
+// GET ALL BLOGS — public, with filters + pagination
+// GET /blogs?search=&tag=&category=&page=&limit=
+// ─────────────────────────────────────────────────────────────
+const getAllBlogs = async (req, res, next) => {
+  try {
+    const page  = parseInt(req.query.page)  || 1;
+    const limit = parseInt(req.query.limit) || 10;
 
-// update blog by id
+    // FIX: category filter add kiya + blogService ko query pass ki
+    const query = {
+      search:   req.query.search   || "",
+      tag:      req.query.tag      || "",
+      category: req.query.category || "", // ← pehle missing tha
+      page,
+      limit,
+    };
 
-const updateBlog=async (req,res,next)=>{
-    try{
-        const blog=await blogService.updateBlog(req.params.id,req.body);
-        if(!blog) return next(new AppError("Blog not found",404))
-        res.status(200).json({success:true,blog})    
+    const { blogs, count } = await blogService.getAllBlogs(query);
+
+    res.status(200).json({
+      success: true,
+      count,
+      blogs,
+      pagination: {
+        current: page,
+        pages:   Math.ceil(count / limit),
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// GET SINGLE BLOG
+// GET /blogs/:id
+// ─────────────────────────────────────────────────────────────
+const getBlogById = async (req, res, next) => {
+  try {
+    const blog = await blogService.getBlogById(req.params.id);
+    if (!blog) return next(new AppError("Blog not found", 404));
+
+    res.status(200).json({ success: true, blog });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// CREATE BLOG (Admin only)
+// POST /blogs
+// ─────────────────────────────────────────────────────────────
+const createBlog = async (req, res, next) => {
+  try {
+    const { title, content, tags, category } = req.body;
+
+    if (!title || !content) {
+      return next(new AppError("Title and content are required", 400));
     }
-    catch(err){
-        next(err);
-    }
-}
 
+    const normalizedCategory = normalizeCategoryId(category);
 
+    const blogData = {
+      title:    title.trim(),
+      content:  content.trim(),
+      tags:     parseTags(tags),
+      author:   req.user.id,
+      ...(normalizedCategory && { category: normalizedCategory }),
+    };
 
-// delete the blog
-const deleteBlog=async (req,res,next)=>{
-    try{
-    const blog=await blogService.deleteBlog(req.params.id);
-
-    if(!blog)
-        return next(new AppError("Blog not found",404));
-    return res.status(200).json({success:true,message:"Blog deleted"})
-    }
-
-    catch(err){
-        next(err)
+    // Cloudinary image upload
+    if (req.file) {
+      blogData.coverImage = await uploadToCloudinary(req.file.path);
     }
 
-}
+    const blog = await blogService.createBlog(blogData);
+    res.status(201).json({ success: true, blog });
+  } catch (err) {
+    next(err);
+  }
+};
 
-export {getAllBlogs,getBlogById,createBlog,updateBlog,deleteBlog}
+// ─────────────────────────────────────────────────────────────
+// UPDATE BLOG (Admin only)
+// PUT /blogs/:id
+// ─────────────────────────────────────────────────────────────
+const updateBlog = async (req, res, next) => {
+  try {
+    const { title, content, tags, category } = req.body;
 
+    // Pehle blog fetch karo — authorization check ke liye
+    const blog = await Blog.findById(req.params.id);
+    if (!blog) return next(new AppError("Blog not found", 404));
 
+    if (blog.author.toString() !== req.user.id) {
+      return next(new AppError("You can only update your own blogs", 403));
+    }
+
+    const normalizedCategory = normalizeCategoryId(category);
+    const parsedTags = parseTags(tags);
+
+    const blogData = {};
+    if (title)                  blogData.title    = title.trim();
+    if (content)                blogData.content  = content.trim();
+    if (parsedTags.length)      blogData.tags     = parsedTags;
+    if (normalizedCategory)     blogData.category = normalizedCategory;
+
+    // Nayi image upload hui hai to replace karo
+    if (req.file) {
+      blogData.coverImage = await uploadToCloudinary(req.file.path);
+    }
+
+    const updatedBlog = await blogService.updateBlog(req.params.id, blogData);
+    res.status(200).json({ success: true, blog: updatedBlog });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// DELETE BLOG — soft delete (Admin only)
+// DELETE /blogs/:id
+// ─────────────────────────────────────────────────────────────
+const deleteBlog = async (req, res, next) => {
+  try {
+    const blog = await Blog.findById(req.params.id);
+    if (!blog) return next(new AppError("Blog not found", 404));
+
+    if (blog.author.toString() !== req.user.id) {
+      return next(new AppError("You can only delete your own blogs", 403));
+    }
+
+    await blogService.deleteBlog(req.params.id);
+    res.status(200).json({ success: true, message: "Blog deleted successfully" });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export {
+  getAllBlogs,
+  getBlogById,
+  createBlog,
+  updateBlog,
+  deleteBlog,
+  getAdminStaticsOfUserBlog,
+};

@@ -1,11 +1,10 @@
 import mongoose from "mongoose";
 
 const categorySchema = new mongoose.Schema({
-  id: {
-    type: String,
-  },
   title: {
     type: String,
+    required: true,
+    trim: true,
   },
 });
 

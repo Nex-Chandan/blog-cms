@@ -74,5 +74,26 @@ export const loginUser = async (req, res) => {
 
 // get profile (protected route)
 export const getProfile = async (req, res) => {
-  res.json(req.user);
+
+try {
+    const userId = req.user.id;
+
+    const user = await User.findById(userId)
+      .select("-password -refreshToken");
+
+    if (!user) {
+      return next(new AppError("User not found", 404));
+    }
+
+    res.status(200).json({
+      success: true,
+      user,
+    });
+
+  }
+  catch (err) {
+    next(err);
+  }
 };
+
+

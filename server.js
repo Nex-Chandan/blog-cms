@@ -3,6 +3,7 @@ import dotenv from "dotenv"
 import connectDb from "./config/db.js";
 import blogRoutes from "./routes/blogRoutes.js"
 import authRoutes from "./routes/authRoutes.js"
+import categoryRoutes from "./routes/categoryRoutes.js"
 dotenv.config();
 
 const app = express();
@@ -15,8 +16,9 @@ connectDb();
 app.use(express.json());
 
 // Routes
-app.use("api/blogs",blogRoutes)
+app.use("/api/blogs",blogRoutes)
 app.use("/api/auth",authRoutes)
+app.use("/categories", categoryRoutes);
 
 // Server start
 app.listen(PORT, () => {

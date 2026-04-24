@@ -1,63 +1,90 @@
-import Blog from "../models/blog.js"
+import Blog     from "../models/blog.js";
+import Category from "../models/category.js";
+import { AppError } from "../utills/errorHandler.js";
 
-// get all blogs with search and filter
+// ─────────────────────────────────────────────────────────────
+// GET ALL BLOGS — filter + pagination
+// ─────────────────────────────────────────────────────────────
+const getAllBlogs = async (query = {}) => {
+  const page  = parseInt(query.page)  || 1;
+  const limit = parseInt(query.limit) || 10;
 
-const getAllBlogs=async (query={})=>{
-    const filter={};
+  const filter = { isPublic: true, isDeleted: false };
 
-    // search by title case insensitive
+  if (query.search)   filter.title    = { $regex: query.search, $options: "i" };
+  if (query.tag)      filter.tags     = query.tag;
+  if (query.category) filter.category = query.category; // ← FIX: category filter
 
-    if(query.search){
-        filter.title={$regex:query.search,$options:"i"};
-    }
+  const [blogs, count] = await Promise.all([
+    Blog.find(filter)
+      .populate("author",   "name email")
+      .populate("category", "title")     // ← FIX: "name" → "title" (schema ke hisab se)
+      .limit(limit)
+      .skip((page - 1) * limit)
+      .sort({ createdAt: -1 }),
+    Blog.countDocuments(filter),
+  ]);
 
-    // filter by tag
-    if(query.tag){
-        filter.tags=query.tag;
-    }
+  return { blogs, count };
+};
 
-     const blogs=await Blog.find(filter)
-     .populate("author","name email")
-     .sort({createdAt:-1});
+// ─────────────────────────────────────────────────────────────
+// GET SINGLE BLOG BY ID
+// ─────────────────────────────────────────────────────────────
+const getBlogById = async (id) => {
+  const blog = await Blog.findById(id)
+    .populate("author",   "name email")
+    .populate("category", "title"); // ← FIX: category populate missing tha
+  return blog;
+};
 
-     return blogs;
-}
+// ─────────────────────────────────────────────────────────────
+// CREATE BLOG
+// ─────────────────────────────────────────────────────────────
+const createBlog = async (data) => {
+  // Category exist karti hai ya nahi check karo
+  if (data.category) {
+    const category = await Category.findById(data.category);
+    if (!category) throw new AppError("Category not found", 404); // ← AppError use karo
+  }
 
+  const blog = await Blog.create(data);
 
-// get the single blog by the id
+  // Populated blog return karo
+  return await Blog.findById(blog._id)
+    .populate("author",   "name email")
+    .populate("category", "title");
+};
 
-const getBlogById=async (id)=>{
-    const blog=await Blog.findById(id).populate("author","name email");
-    return blog;
-}
+// ─────────────────────────────────────────────────────────────
+// UPDATE BLOG
+// ─────────────────────────────────────────────────────────────
+const updateBlog = async (id, data) => {
+  if (data.category) {
+    const category = await Category.findById(data.category);
+    if (!category) throw new AppError("Category not found", 404);
+  }
 
-// create new blog
-const createBlog=async (data)=>{
-    const blog=await Blog.create(data);
-    return blog;
-}
+  const blog = await Blog.findByIdAndUpdate(id, data, {
+    new:            true,
+    runValidators:  true,
+  })
+    .populate("author",   "name email")
+    .populate("category", "title");
 
-// update existing blog
+  return blog;
+};
 
-const updateBlog=async (id,data)=>{
-    const blog=await Blog.findByIdAndUpdate(
-        id,
-        {...data},
-        {new:true,runValidators:true}
-    )
-    return blog
-}
+// ─────────────────────────────────────────────────────────────
+// DELETE BLOG — soft delete
+// ─────────────────────────────────────────────────────────────
+const deleteBlog = async (id) => {
+  const blog = await Blog.findByIdAndUpdate(
+    id,
+    { isDeleted: true },
+    { new: true }
+  );
+  return blog;
+};
 
-
-// delete the blog
-
-const deleteBlog=async (id)=>{
-    const blog=await findByIdAndUpdate(
-        id,
-        {isDeleted:true},
-        {new:true}
-    )
-    return blog
-}
-
-export default {getAllBlogs,getBlogById,createBlog,updateBlog,deleteBlog}
+export default { getAllBlogs, getBlogById, createBlog, updateBlog, deleteBlog };
