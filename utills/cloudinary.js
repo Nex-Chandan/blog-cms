@@ -11,7 +11,7 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-console.log("env checking loading", process.env.CLOUDINARY_API_KEY);
+// console.log("env checking loading", process.env.CLOUDINARY_API_KEY);
 
 // multer storage
 const storage = multer.diskStorage({
@@ -63,12 +63,12 @@ export const uploadToCloudinary = async (localPath) => {
       public_id: result.public_id,
     };
   } catch (error) {
-    console.error("🔥 REAL Cloudinary ERROR:", error);
+    console.error(" REAL Cloudinary ERROR:", error);
 
     try {
       await fs.unlink(localPath);
     } catch {}
 
-    throw error; // ✅ IMPORTANT FIX
+    throw error; 
   }
 };

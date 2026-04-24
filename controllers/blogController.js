@@ -3,19 +3,7 @@ import Blog from "../models/blog.js";
 import blogService from "../services/blogservices.js";
 import { AppError } from "../utills/errorHandler.js";
 import User from "../models/user.js";
-
-// ─── Helper: Category ID validate karo ───────────────────────
-const normalizeCategoryId = (id) => {
-  if (!id) return null;
-  const idStr = String(id).trim();
-  if (idStr.length !== 24 || !/^[0-9a-fA-F]{24}$/.test(idStr)) {
-    throw new AppError(
-      "Invalid category ID format. Must be a 24-character hexadecimal string.",
-      400,
-    );
-  }
-  return idStr.toLowerCase();
-};
+import Category from "../models/category.js";
 
 // ─── Helper: Tags parse karo (string ya array dono handle) ───
 const parseTags = (tags) => {
@@ -36,9 +24,24 @@ const parseTags = (tags) => {
   return [];
 };
 
+// ─── Helper: Category name se ID resolve karo ────────────────
+const resolveCategoryId = async (categoryName, next) => {
+  if (!categoryName) return undefined;
+
+  const found = await Category.findOne({
+    title: { $regex: new RegExp(`^${categoryName}$`, "i") },
+  });
+
+  if (!found) {
+    return next(new AppError(`Category "${categoryName}" not found`, 404));
+  }
+
+  return found._id;
+};
+
 // ─────────────────────────────────────────────────────────────
-// ADMIN STATS — total users + total blogs
-// GET /blogs/admin/stats
+// ADMIN STATS
+// GET /api/blogs/stats
 // ─────────────────────────────────────────────────────────────
 const getAdminStaticsOfUserBlog = async (req, res, next) => {
   try {
@@ -56,18 +59,17 @@ const getAdminStaticsOfUserBlog = async (req, res, next) => {
 
 // ─────────────────────────────────────────────────────────────
 // GET ALL BLOGS — public, with filters + pagination
-// GET /blogs?search=&tag=&category=&page=&limit=
+// GET /api/blogs?search=&tag=&category=&page=&limit=
 // ─────────────────────────────────────────────────────────────
 const getAllBlogs = async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
-    // FIX: category filter add kiya + blogService ko query pass ki
     const query = {
       search: req.query.search || "",
       tag: req.query.tag || "",
-      category: req.query.category || "", // ← pehle missing tha
+      category: req.query.category || "",
       page,
       limit,
     };
@@ -90,7 +92,7 @@ const getAllBlogs = async (req, res, next) => {
 
 // ─────────────────────────────────────────────────────────────
 // GET SINGLE BLOG
-// GET /blogs/:id
+// GET /api/blogs/:id
 // ─────────────────────────────────────────────────────────────
 const getBlogById = async (req, res, next) => {
   try {
@@ -104,8 +106,8 @@ const getBlogById = async (req, res, next) => {
 };
 
 // ─────────────────────────────────────────────────────────────
-// CREATE BLOG 
-// POST /blogs
+// CREATE BLOG
+// POST /api/blogs
 // ─────────────────────────────────────────────────────────────
 const createBlog = async (req, res, next) => {
   try {
@@ -115,42 +117,40 @@ const createBlog = async (req, res, next) => {
       return next(new AppError("Title and content are required", 400));
     }
 
-    const normalizedCategory = normalizeCategoryId(category);
+    // FIX: Category model se ID resolve karo — name se
+    const categoryId = await resolveCategoryId(category, next);
+    if (category && !categoryId) return; // next() already called
 
     const blogData = {
       title: title.trim(),
       content: content.trim(),
       tags: parseTags(tags),
       author: req.user.id,
-      ...(normalizedCategory && { category: normalizedCategory }),
+      ...(categoryId && { category: categoryId }),
     };
 
     // Cloudinary image upload
     if (req.file) {
-      console.log("file received",req.file.path)
+      console.log("File received:", req.file.path);
       const uploaded = await uploadToCloudinary(req.file.path);
-      console.log("Cloudinary Response:", uploaded); 
+      console.log("Cloudinary response:", uploaded);
       blogData.coverImage =
-      typeof uploaded==="string" ?uploaded :uploaded.url;
-
-
-    }
-    else{
-      console.log("no file uploaded")
+        typeof uploaded === "string" ? uploaded : uploaded.url;
+    } else {
+      console.log("No file uploaded");
     }
 
     const blog = await blogService.createBlog(blogData);
     res.status(201).json({ success: true, blog });
-  } 
-  catch (err) {
-    console.log("create blog error",err)
+  } catch (err) {
+    console.log("createBlog error:", err);
     next(err);
   }
 };
 
 // ─────────────────────────────────────────────────────────────
-// UPDATE BLOG (Admin only)
-// PUT /blogs/:id
+// UPDATE BLOG
+// PUT /api/blogs/:id
 // ─────────────────────────────────────────────────────────────
 const updateBlog = async (req, res, next) => {
   try {
@@ -164,18 +164,27 @@ const updateBlog = async (req, res, next) => {
       return next(new AppError("You can only update your own blogs", 403));
     }
 
-    const normalizedCategory = normalizeCategoryId(category);
-    const parsedTags = parseTags(tags);
-
+    // FIX: blogData pehle declare karo, phir category resolve karo
     const blogData = {};
+
     if (title) blogData.title = title.trim();
     if (content) blogData.content = content.trim();
+
+    const parsedTags = parseTags(tags);
     if (parsedTags.length) blogData.tags = parsedTags;
-    if (normalizedCategory) blogData.category = normalizedCategory;
+
+    // FIX: Category spelling sahi kiya + blogData pehle declare tha
+    if (category) {
+      const categoryId = await resolveCategoryId(category, next);
+      if (!categoryId) return; // next() already called
+      blogData.category = categoryId;
+    }
 
     // Nayi image upload hui hai to replace karo
     if (req.file) {
-      blogData.coverImage = await uploadToCloudinary(req.file.path);
+      const uploaded = await uploadToCloudinary(req.file.path);
+      blogData.coverImage =
+        typeof uploaded === "string" ? uploaded : uploaded.url;
     }
 
     const updatedBlog = await blogService.updateBlog(req.params.id, blogData);
@@ -186,8 +195,8 @@ const updateBlog = async (req, res, next) => {
 };
 
 // ─────────────────────────────────────────────────────────────
-// DELETE BLOG — soft delete (Admin only)
-// DELETE /blogs/:id
+// DELETE BLOG — soft delete
+// DELETE /api/blogs/:id
 // ─────────────────────────────────────────────────────────────
 const deleteBlog = async (req, res, next) => {
   try {

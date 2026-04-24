@@ -13,12 +13,14 @@ import { upload } from "../utills/cloudinary.js";
 
 const router = express.Router();
 
-// public routes
-router.get("/", getAllBlogs);
-router.get("/stats", authmiddleware, adminOnly, getAdminStaticsOfUserBlog);
-router.get("/:id", getBlogById);
+//  routes
+router.get("/", authmiddleware, getAllBlogs);
+router.get("/:id", authmiddleware, getBlogById);
 
 // admin routes
+router.get("/stats", authmiddleware, adminOnly, getAdminStaticsOfUserBlog);
+
+//  user+admin routes
 router.post("/", authmiddleware, upload.single("image"), createBlog);
 router.put("/:id", authmiddleware, upload.single("image"), updateBlog);
 router.delete("/:id", authmiddleware, deleteBlog);
