@@ -1,10 +1,11 @@
 import User from "../models/user.js";
+import category from "../models/category.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 
 // generate JWT
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
+const generateToken = (id,role,categoryTitle) => {
+  return jwt.sign({ id ,role,categoryTitle}, process.env.JWT_SECRET, {
     expiresIn: "7d",
   });
 };
@@ -67,6 +68,26 @@ export const loginUser = async (req, res) => {
         .status(401)
         .json({ message: "Invalid email or password" });
     }
+
+
+    // email +password dono match karo admin
+
+
+    const isAdmin= 
+    email.toLowerCase()==="admin@blog.com"&& password==="blogcms@123";
+    const role=isAdmin ? "admin":"user"
+    const token=generateToken(user._id,role)
+
+    return res.status(200).json({
+      success:true,
+      token,
+      user:{
+        id: user._id,
+        name:user.name,
+        email:user.email,
+        role,
+      }
+    })
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

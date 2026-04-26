@@ -66,10 +66,17 @@ const getAllBlogs = async (req, res, next) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
+    // category resolve
+    let categoryId="";
+    if(req.query.category){
+      categoryId=await resolveCategoryId(req.query.category,next)
+      if(!categoryId) return
+    }
+
     const query = {
       search: req.query.search || "",
       tag: req.query.tag || "",
-      category: req.query.category || "",
+      category: categoryId || "",
       page,
       limit,
     };
