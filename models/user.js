@@ -31,6 +31,11 @@ email:{
     required:true,
     default: "User",
 
+ },
+ category:{
+    type:String,
+    default:null,
+
  }
 
 },

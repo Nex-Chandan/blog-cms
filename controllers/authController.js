@@ -1,11 +1,11 @@
 import User from "../models/user.js";
-import category from "../models/category.js";
+import Category from "../models/category.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 
 // generate JWT
-const generateToken = (id,role,categoryTitle) => {
-  return jwt.sign({ id ,role,categoryTitle}, process.env.JWT_SECRET, {
+const generateToken = (id, role, categoryTitle) => {
+  return jwt.sign({ id, role, categoryTitle }, process.env.JWT_SECRET, {
     expiresIn: "7d",
   });
 };
@@ -13,7 +13,7 @@ const generateToken = (id,role,categoryTitle) => {
 // register user
 export const registerUser = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, categoryId } = req.body;
 
     // validation
     if (!name || !email || !password) {
@@ -30,19 +30,31 @@ export const registerUser = async (req, res) => {
       return res.status(400).json({ message: "User already exists" });
     }
 
+    // fetch category title if categoryId provided
+    let categoryTitle = null;
+    if (categoryId) {
+      const cat = await Category.findById(categoryId).select("title");
+      if (cat) {
+        categoryTitle = cat.title;
+      }
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
       name,
       email: email.toLowerCase(),
       password: hashedPassword,
+      category: categoryTitle,
     });
 
     res.status(201).json({
       _id: user._id,
       name: user.name,
       email: user.email,
-      token: generateToken(user._id),
+      role: user.role,
+      category: user.category,
+      token: generateToken(user._id, user.role, user.category),
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -56,65 +68,48 @@ export const loginUser = async (req, res) => {
 
     const user = await User.findOne({ email: email.toLowerCase() });
 
-    if (user && (await bcrypt.compare(password, user.password))) {
-      return res.json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        token: generateToken(user._id),
-      });
-    } else {
-      return res
-        .status(401)
-        .json({ message: "Invalid email or password" });
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({ message: "Invalid email or password" });
     }
 
+    const role = user.role;
+    const categoryTitle = user.category;
 
-    // email +password dono match karo admin
-
-
-    const isAdmin= 
-    email.toLowerCase()==="admin@blog.com"&& password==="blogcms@123";
-    const role=isAdmin ? "admin":"user"
-    const token=generateToken(user._id,role)
+    const token = generateToken(user._id, role, categoryTitle);
 
     return res.status(200).json({
-      success:true,
+      success: true,
       token,
-      user:{
+      user: {
         id: user._id,
-        name:user.name,
-        email:user.email,
+        name: user.name,
+        email: user.email,
         role,
-      }
-    })
+        category: categoryTitle,
+      },
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
 // get profile (protected route)
-export const getProfile = async (req, res) => {
-
-try {
+export const getProfile = async (req, res, next) => {
+  try {
     const userId = req.user.id;
 
-    const user = await User.findById(userId)
-      .select("-password -refreshToken");
+    const user = await User.findById(userId).select("-password");
 
     if (!user) {
-      return next(new AppError("User not found", 404));
+      return res.status(404).json({ message: "User not found" });
     }
 
     res.status(200).json({
       success: true,
       user,
     });
-
-  }
-  catch (err) {
+  } catch (err) {
     next(err);
   }
 };
-
 
