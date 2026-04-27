@@ -68,14 +68,32 @@ export const loginUser = async (req, res) => {
 
     const user = await User.findOne({ email: email.toLowerCase() });
 
+    // check admin hardcoded
+    const isAdmin =
+      email.toLowerCase() === "admin@blog.com" &&
+      password === "blogcms@123";
+
+    if (isAdmin) {
+      const token = generateToken(user._id, "admin", user.category);
+
+      return res.status(200).json({
+        success: true,
+        token,
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: "admin",
+        },
+      });
+    }
+
+    // normal user login
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    const role = user.role;
-    const categoryTitle = user.category;
-
-    const token = generateToken(user._id, role, categoryTitle);
+    const token = generateToken(user._id, user.role, user.category);
 
     return res.status(200).json({
       success: true,
@@ -84,8 +102,8 @@ export const loginUser = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        role,
-        category: categoryTitle,
+        role: user.role,
+        category: user.category,
       },
     });
   } catch (error) {
