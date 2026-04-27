@@ -113,6 +113,22 @@ export const loginUser = async (req, res) => {
 export const getProfile = async (req, res, next) => {
   try {
     const userId = req.user.id;
+     //  admin case handle
+    if (userId === "admin-static-id") {
+      return res.status(200).json({
+        success: true,
+        user: {
+          id: userId,
+          name: "Admin",
+          role: "admin",
+        },
+      });
+    }
+
+    // normal user
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
 
     const user = await User.findById(userId).select("-password");
 

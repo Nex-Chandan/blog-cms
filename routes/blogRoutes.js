@@ -15,10 +15,11 @@ const router = express.Router();
 
 //  routes
 router.get("/",getAllBlogs);
-router.get("/:id", authmiddleware, getBlogById);
 
 // admin routes
 router.get("/stats", authmiddleware, adminOnly, getAdminStaticsOfUserBlog);
+
+router.get("/:id", authmiddleware, getBlogById);
 
 //  user+admin routes
 router.post("/", authmiddleware, upload.single("image"), createBlog);
