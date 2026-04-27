@@ -71,12 +71,12 @@ export const loginUser = async (req, res) => {
       email.toLowerCase() ==="chandan123456@gmail.com" &&
       password === "12345678"
     ) {
-      const token = generateToken("admin-static-id", "Admin", null);
+      const token = generateToken("69eebbaee007f14880bf8259", "Admin", null);
       return res.status(200).json({
         success: true,
         token,
         user: {
-          id: "admin-static-id",
+          id: "69eebbaee007f14880bf8259",
           name: "Admin",
           email: email.toLowerCase(),
           role: "admin",

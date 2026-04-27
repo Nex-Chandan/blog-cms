@@ -16,6 +16,7 @@ const authMiddleware = async (req, res, next) => {
 
     // Attach user payload to request
     req.user = decoded;
+    req.admin=decoded;
 
     next();
   } catch (error) {

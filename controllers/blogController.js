@@ -125,7 +125,7 @@ const createBlog = async (req, res, next) => {
 
     // FIX: Category model se ID resolve karo — name se
     const categoryId = await resolveCategoryId(category, next);
-    if (category && !categoryId) return; // next() already called
+    if (category && !categoryId) return;
 
     const blogData = {
       title: title.trim(),
