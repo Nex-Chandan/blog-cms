@@ -2,6 +2,7 @@ import User from "../models/user.js";
 import Category from "../models/category.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import mongoose from "mongoose";
 
 // generate JWT
 const generateToken = (id, role, categoryTitle) => {
@@ -114,7 +115,7 @@ export const getProfile = async (req, res, next) => {
   try {
     const userId = req.user.id;
      //  admin case handle
-    if (userId === "admin-static-id") {
+    if (userId === "69eebbaee007f14880bf8259") {
       return res.status(200).json({
         success: true,
         user: {
