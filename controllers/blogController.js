@@ -166,7 +166,7 @@ const updateBlog = async (req, res, next) => {
     const blog = await Blog.findById(req.params.id);
     if (!blog) return next(new AppError("Blog not found", 404));
 
-    if (blog.author.toString() !== req.user.id) {
+    if (blog.author.toString() !== req.user.id && req.user.role !=="Admin") {
       return next(new AppError("You can only update your own blogs", 403));
     }
 
@@ -186,7 +186,7 @@ const updateBlog = async (req, res, next) => {
       blogData.category = categoryId;
     }
 
-    // Nayi image upload hui hai to replace karo
+    // Nayi image upload hui hai to replace 
     if (req.file) {
       const uploaded = await uploadToCloudinary(req.file.path);
       blogData.coverImage =
@@ -208,7 +208,7 @@ const deleteBlog = async (req, res, next) => {
     const blog = await Blog.findById(req.params.id);
     if (!blog) return next(new AppError("Blog not found", 404));
 
-    if (blog.author.toString() !== req.user.id) {
+    if (blog.author.toString() !== req.user.id && req.user.role !=="Admin") {
       return next(new AppError("You can only delete your own blogs", 403));
     }
 

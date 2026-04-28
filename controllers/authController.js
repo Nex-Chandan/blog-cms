@@ -66,7 +66,7 @@ export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // admin hard-coded check
+    // admin hard-coded hai 
     if (
       email.toLowerCase() ==="chandan123456@gmail.com" &&
       password === "12345678"
